@@ -119,12 +119,6 @@ class ProfileController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             
-            \Log::error('Profile update error', [
-                'user_id' => $request->user()->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
             return response()->json([
                 'status' => false,
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()

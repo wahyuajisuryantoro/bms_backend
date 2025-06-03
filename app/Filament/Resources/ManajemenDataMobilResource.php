@@ -84,8 +84,8 @@ class ManajemenDataMobilResource extends Resource
                             ->required()
                             ->image()
                             ->imageResizeMode('contain') 
-                            ->imageResizeTargetWidth(400) 
-                            ->imageResizeTargetHeight(300)
+                            ->imageResizeTargetWidth(800) 
+                            ->imageResizeTargetHeight(700)
                             ->directory('thumbnail-mobil')
                             ->visibility('public'),
                     ])
@@ -103,8 +103,8 @@ class ManajemenDataMobilResource extends Resource
                                     ->image()
                                     ->imageResizeMode('contain')
                                     ->imageCropAspectRatio('1:1')
-                                    ->imageResizeTargetWidth(200)
-                                    ->imageResizeTargetHeight(200)
+                                    ->imageResizeTargetWidth(400)
+                                    ->imageResizeTargetHeight(400)
                                     ->directory('foto-detail-mobil')
                                     ->visibility('public'),
                             ]),
