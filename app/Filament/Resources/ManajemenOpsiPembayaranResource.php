@@ -44,8 +44,8 @@ class ManajemenOpsiPembayaranResource extends Resource
                     ->searchable()
                     ->preload()
                     ->required()
-                    ->disabled($record ? true : false) // Disable jika dalam mode edit
-                    ->dehydrated(true) // Tetap kirim datanya meskipun disabled
+                    ->disabled($record ? true : false)
+                    ->dehydrated(true)
                     ->columnSpanFull(),
             ]);
 
@@ -273,7 +273,8 @@ class ManajemenOpsiPembayaranResource extends Resource
                                 return 'Tenor Baru';
                             })
                             ->collapsible()
-                            ->defaultItems(3)
+                            ->defaultItems(1) // CHANGED: Ubah dari 3 menjadi 1
+                            ->minItems(1) // ADDED: Minimal 1 item
                             ->createItemButtonLabel('Tambah Opsi Tenor'),
                     ]);
             }
