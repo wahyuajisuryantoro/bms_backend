@@ -411,8 +411,8 @@
                                         class="img-fluid w-75"></div>
                                 <div class="swiper-slide"><img src="{{ asset('landing/images/swiper/favorit.jpg') }}"
                                         alt="" class="img-fluid w-75"></div>
-                                <div class="swiper-slide"><img src="{{ asset('landing/images/swiper/akun.jpg') }}"
-                                        alt="" class="img-fluid w-75"></div>
+                                {{-- <div class="swiper-slide"><img src="{{ asset('landing/images/swiper/akun.jpg') }}"
+                                        alt="" class="img-fluid w-75"></div> --}}
                                 <div class="swiper-slide"><img src="{{ asset('landing/images/swiper/tentang.jpg') }}"
                                         alt="" class="img-fluid w-75"></div>
                             </div>
@@ -873,7 +873,7 @@
         </div>
     </section>
     <!-- video section start  -->
-    <section class="app-video hero-part section position-relative">
+    {{-- <section class="app-video hero-part section position-relative">
         <div class="bg-overlay"></div>
         <div class="container">
             <!-- row start  -->
@@ -889,7 +889,7 @@
         </div>
         <!-- row start  -->
         </div>
-    </section>
+    </section> --}}
     <!-- video section end  -->
     <!-- contact-part start  -->
     <section class="section contact-part bg-light" id="contacts">
