@@ -5,17 +5,59 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Enhanced SEO Meta Tags -->
     <meta name="description"
-        content="Aplikasi bursa mobil Solo untuk jual beli mobil bekas terpercaya. Temukan mobil impian Anda atau jual mobil dengan mudah di Surakarta dan sekitarnya. Download sekarang!" />
+        content="Bursa Mobil Solo - tempat jual beli mobil bekas terpercaya di Solo dengan pembayaran cash dan kredit. Marketplace mobil Surakarta yang menghubungkan penjual dan pembeli secara aman. Transaksi mudah, harga transparan, pilihan kredit fleksibel untuk semua jenis mobil bekas berkualitas." />
+
     <meta name="keywords"
-        content="bursa mobil solo, jual beli mobil bekas solo, aplikasi beli mobil surakarta, mobil bekas solo, showroom mobil solo, dealer mobil surakarta, kredit mobil solo, kredit mobil surakarta" />
-    <meta name="author" content="Bursa Mobil Solo" />
+        content="bursa mobil solo, jual beli mobil bekas solo, marketplace mobil solo, mobil bekas surakarta, bursa mobil surakarta, jual mobil cash solo, kredit mobil solo, kredit mobil surakarta, mobil bekas cash kredit solo, dealer mobil solo, showroom mobil solo, mobil second solo, mobil murah solo, beli mobil solo, jual mobil solo, pasar mobil solo, bursa otomotif solo, mobil bekas berkualitas solo, transaksi mobil solo, platform mobil solo, aplikasi jual mobil solo, situs mobil bekas solo, toko mobil solo, lelang mobil solo, mobil bekas terpercaya solo" />
+
+    <!-- Long-tail Keywords for Local SEO -->
+    <meta name="keywords-long-tail"
+        content="tempat jual beli mobil bekas di solo, bursa mobil bekas solo surakarta, kredit mobil bekas tanpa dp solo, mobil bekas murah di solo jawa tengah, showroom mobil bekas terpercaya solo, dealer mobil second solo, pasar mobil bekas solo karanganyar, jual mobil bekas cash kredit solo, beli mobil bekas cicilan solo, platform jual beli mobil online solo" />
+
+    <!-- Geographic and Category Specific -->
+    <meta name="geo.keywords"
+        content="solo, surakarta, karanganyar, sukoharjo, boyolali, klaten, wonogiri, sragen, jawa tengah, central java" />
+
+    <meta name="category.keywords"
+        content="sedan bekas solo, suv bekas solo, hatchback bekas solo, mpv bekas solo, pickup bekas solo, mobil sport bekas solo, mobil keluarga bekas solo, mobil murah solo, mobil mewah bekas solo" />
+
+    <!-- Brand Specific Keywords -->
+    <meta name="brand.keywords"
+        content="toyota bekas solo, honda bekas solo, suzuki bekas solo, daihatsu bekas solo, mitsubishi bekas solo, nissan bekas solo, mazda bekas solo, hyundai bekas solo, kia bekas solo, ford bekas solo, chevrolet bekas solo, bmw bekas solo, mercedes bekas solo, audi bekas solo" />
+
+    <!-- Transaction Type Keywords -->
+    <meta name="transaction.keywords"
+        content="cash mobil solo, kredit mobil solo, tukar tambah mobil solo, trade in mobil solo, dp murah mobil solo, cicilan mobil solo, leasing mobil solo, financing mobil solo, kredit tanpa dp solo, kredit bunga rendah solo" />
+
+    <!-- Additional SEO Meta -->
+    <meta name="subject" content="Bursa Mobil Bekas Solo - Jual Beli Cash Kredit" />
+    <meta name="topic" content="Marketplace Mobil Bekas Solo Surakarta" />
+    <meta name="summary"
+        content="Platform terpercaya untuk transaksi mobil bekas di Solo dengan pilihan pembayaran cash dan kredit yang fleksibel" />
+    <meta name="classification" content="Otomotif, Marketplace, Jual Beli Mobil, E-commerce" />
+    <meta name="coverage" content="Solo, Surakarta, Karanganyar, Sukoharjo, Jawa Tengah" />
+    <meta name="distribution" content="local" />
+    <meta name="target" content="pembeli mobil bekas, penjual mobil bekas, dealer mobil, showroom mobil" />
+
+    <!-- Local Business Schema Keywords -->
+    <meta name="business.type" content="Automotive Marketplace, Car Dealership Platform, Vehicle Trading Platform" />
+    <meta name="service.area" content="Solo, Surakarta, Karanganyar, Sukoharjo, Boyolali, Klaten, Sragen, Wonogiri" />
+    <meta name="price.range" content="10000000-500000000" />
+    <meta name="currency" content="IDR" />
+
+    <!-- Search Intent Keywords -->
+    <meta name="intent.keywords"
+        content="cari mobil bekas solo, beli mobil second solo, jual mobil cepat solo, kredit mobil mudah solo, dp ringan mobil solo, mobil bekas berkualitas solo, showroom terpercaya solo, dealer resmi solo" />
+
+    <!-- Seasonal/Trending Keywords -->
+    <meta name="trending.keywords"
+        content="mobil bekas 2024 solo, promo kredit mobil solo, diskon mobil bekas solo, bursa mobil akhir tahun solo, mobil bekas terbaru solo, update harga mobil solo" />
+    <meta name="author" content="bursamobilsolo.com" />
     <meta name="robots" content="index, follow" />
     <meta name="language" content="id" />
     <meta name="geo.region" content="ID-JI" />
-    <meta name="geo.placename" content="Solo, Surakarta" />
-    <meta name="geo.position" content="-7.5755;110.8243" />
-    <meta name="ICBM" content="-7.5755, 110.8243" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -23,7 +65,7 @@
     <meta name="application-name" content="Bursa Mobil Solo" />
     <meta name="theme-color" content="#1a73e8" />
     <meta name="msapplication-TileColor" content="#1a73e8" />
-    <title>Bursa Mobil Solo</title>
+   <title>Bursa Mobil Solo - Jual Beli Cash Kredit Terpercaya</title>
     <link rel="icon" type="images/x-icon" href="{{ asset('landing/images/icon.png') }}" />
 
     <!-- remix icon  -->
@@ -60,8 +102,9 @@
                         <span class="brand-text">Bursa Mobil Solo</span>
                     </a>
                 </div>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"
-                    aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false"
+                    aria-label="Toggle navigation">
                     <span class="fw-bold text-dark fs-4"><i class="ri-menu-5-line"></i></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarCollapse">
