@@ -40,7 +40,6 @@
         <h1>Verifikasi Email Berhasil</h1>
         <p>{{ $message }}</p>
         <p>Sekarang Anda dapat login ke aplikasi menggunakan email dan password yang telah terdaftar.</p>
-        <a href="dealermobil://login" class="btn">Buka Aplikasi</a>
     </div>
 </body>
 </html>
