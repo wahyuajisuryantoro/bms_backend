@@ -22,16 +22,20 @@ class DetailMobilController extends Controller
                 'kapasitasMesin:id,kapasitas',
                 'warna:id,nama_warna',
                 'fotoDetail:id,mobil_id,foto_path,jenis_foto',
-                'opsiPembayaran'
+                'opsiPembayaran.konfigurasiKredit:id,nama_template,tenor_bunga_config,is_active'
             ])
                 ->findOrFail($id);
 
-            $cashOption = $mobil->opsiPembayaran->where('metode', 'Cash')->first();
-            $harga = $cashOption ? $cashOption->harga : 0;
-            $kreditOption = $mobil->opsiPembayaran
-                ->where('metode', 'Kredit')
-                ->sortBy('tenor')
-                ->first();
+            $opsiPembayaran = $mobil->opsiPembayaran->where('is_active', true)->first();
+            
+            if (!$opsiPembayaran) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Opsi pembayaran tidak tersedia untuk mobil ini'
+                ], 404);
+            }
+
+            $harga = $opsiPembayaran->harga;
 
             $fotoDetail = $mobil->fotoDetail->map(function ($foto) {
                 return [
@@ -57,6 +61,28 @@ class DetailMobilController extends Controller
                 }
             }
 
+            // Prepare opsi kredit data
+            $opsiKredit = null;
+            $tenorTersedia = [];
+
+            if ($opsiPembayaran->is_kredit && $opsiPembayaran->konfigurasiKredit) {
+                $konfigKredit = $opsiPembayaran->konfigurasiKredit;
+                $tenorBungaConfig = $konfigKredit->tenor_bunga_config;
+                
+                if (is_array($tenorBungaConfig) && !empty($tenorBungaConfig)) {
+                    $tenorTersedia = array_keys($tenorBungaConfig);
+                    sort($tenorTersedia); // Sort ascending
+                    
+                    $opsiKredit = [
+                        'nama_template' => $konfigKredit->nama_template,
+                        'tenor_tersedia' => $tenorTersedia,
+                        'tenor_bunga_config' => $tenorBungaConfig,
+                        'dp_minimal_percentage' => 10, // 10% minimal
+                        'dp_maksimal_percentage' => 70, // 70% maksimal
+                    ];
+                }
+            }
+
             $detailMobil = [
                 'id' => $mobil->id,
                 'nama_mobil' => $mobil->nama_mobil,
@@ -78,21 +104,8 @@ class DetailMobilController extends Controller
                 'warna' => $mobil->warna->pluck('nama_warna')->toArray(),
                 'harga_cash' => $harga,
                 'foto_detail' => $fotoDetail,
-                'opsi_kredit' => $kreditOption ? [
-                    'tenor' => $kreditOption->tenor,
-                    'dp_minimal' => $kreditOption->dp_minimal,
-                    'angsuran_per_bulan' => $kreditOption->angsuran_per_bulan,
-                ] : null,
-                'opsi_pembayaran' => $mobil->opsiPembayaran->map(function ($opsi) {
-                    return [
-                        'id' => $opsi->id,
-                        'metode' => $opsi->metode,
-                        'tenor' => $opsi->tenor,
-                        'harga' => $opsi->harga,
-                        'dp_minimal' => $opsi->dp_minimal,
-                        'angsuran_per_bulan' => $opsi->angsuran_per_bulan,
-                    ];
-                }),
+                'opsi_kredit' => $opsiKredit,
+                'metode_pembayaran' => $opsiPembayaran->available_methods,
                 'is_favorited' => $isFavorited,
                 'favorite_id' => $favoriteId,
             ];
@@ -130,9 +143,56 @@ class DetailMobilController extends Controller
                 'message' => 'Anda harus login untuk menggunakan fitur ini'
             ], 401);
         }
+
+        // Get mobil and opsi pembayaran first for validation
+        $mobil = Mobil::with([
+            'opsiPembayaran.konfigurasiKredit:id,nama_template,tenor_bunga_config,is_active'
+        ])->find($id);
+
+        if (!$mobil) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Mobil tidak ditemukan'
+            ], 404);
+        }
+
+        $opsiPembayaran = $mobil->opsiPembayaran->where('is_active', true)->first();
+        
+        if (!$opsiPembayaran) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Opsi pembayaran tidak tersedia untuk mobil ini'
+            ], 404);
+        }
+
+        if (!$opsiPembayaran->is_kredit || !$opsiPembayaran->konfigurasiKredit) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Opsi kredit tidak tersedia untuk mobil ini'
+            ], 404);
+        }
+
+        $hargaOtr = $opsiPembayaran->harga;
+        $konfigKredit = $opsiPembayaran->konfigurasiKredit;
+        $tenorBungaConfig = $konfigKredit->tenor_bunga_config;
+
+        // Dynamic validation based on available tenor and DP limits
+        $tenorTersedia = array_keys($tenorBungaConfig);
+        $dpMinimal = ($hargaOtr * 10) / 100; // 10% dari harga
+        $dpMaksimal = ($hargaOtr * 70) / 100; // 70% dari harga
+
         $validator = Validator::make($request->all(), [
-            'tenor' => 'required|integer|min:12|max:60',
-            'dp_percentage' => 'required|numeric|min:10|max:70',
+            'tenor' => 'required|integer|in:' . implode(',', $tenorTersedia),
+            'dp_amount' => [
+                'required',
+                'numeric',
+                'min:' . $dpMinimal,
+                'max:' . $dpMaksimal
+            ],
+        ], [
+            'tenor.in' => 'Tenor yang dipilih tidak tersedia. Tenor tersedia: ' . implode(', ', $tenorTersedia) . ' bulan',
+            'dp_amount.min' => 'DP minimal adalah Rp ' . number_format($dpMinimal, 0, ',', '.') . ' (10% dari harga)',
+            'dp_amount.max' => 'DP maksimal adalah Rp ' . number_format($dpMaksimal, 0, ',', '.') . ' (70% dari harga)',
         ]);
 
         if ($validator->fails()) {
@@ -144,53 +204,33 @@ class DetailMobilController extends Controller
         }
 
         try {
-            $mobil = Mobil::with([
-                'opsiPembayaran' => function ($query) {
-                    $query->where('metode', 'Cash');
-                }
-            ])->findOrFail($id);
-
-            $cashOption = $mobil->opsiPembayaran->first();
-            if (!$cashOption) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Opsi pembayaran cash tidak tersedia untuk mobil ini'
-                ], 404);
-            }
-
-            $hargaOtr = $cashOption->harga;
             $tenorBulan = $request->tenor;
-            $dpPercentage = $request->dp_percentage;
+            $dpAmount = $request->dp_amount;
 
-            // Hitung DP
-            $dpAmount = ($dpPercentage / 100) * $hargaOtr;
-
-            // Tentukan suku bunga berdasarkan tenor
-            $bungaTahunan = $this->getBungaTahunan($tenorBulan);
+            // Get bunga from konfigurasi kredit
+            $bungaTahunan = $tenorBungaConfig[$tenorBulan];
             $bungaBulanan = $bungaTahunan / 12 / 100;
+
+            // Calculate DP percentage
+            $dpPercentage = ($dpAmount / $hargaOtr) * 100;
 
             // Hitung pokok kredit
             $pokokKredit = $hargaOtr - $dpAmount;
 
-            // Hitung angsuran bulanan (rumus: A = P × r × (1 + r)^n / ((1 + r)^n - 1))
-            // A = angsuran bulanan
-            // P = pokok kredit
-            // r = suku bunga bulanan
-            // n = jumlah periode pembayaran (tenor)
+            // Hitung angsuran bulanan menggunakan rumus anuitas
+            // PMT = PV * [r * (1 + r)^n] / [(1 + r)^n - 1]
             $angsuranBulanan = $pokokKredit * $bungaBulanan * pow((1 + $bungaBulanan), $tenorBulan) / (pow((1 + $bungaBulanan), $tenorBulan) - 1);
 
-            // Biaya-biaya tambahan (dibuat 0 sesuai permintaan)
+            // Biaya-biaya tambahan (sesuai permintaan = 0)
             $biayaAdmin = 0;
             $biayaAsuransi = 0;
 
             // Total pembayaran
             $totalKredit = ($angsuranBulanan * $tenorBulan) + $dpAmount + $biayaAdmin + $biayaAsuransi;
 
-            // Rincian angsuran per bulan
+            // Rincian angsuran per bulan (12 bulan pertama)
             $rincianAngsuran = [];
             $sisaPokok = $pokokKredit;
-
-            // Batasi rincian angsuran untuk 12 bulan pertama saja
             $maxRincianBulan = min($tenorBulan, 12);
 
             for ($bulan = 1; $bulan <= $maxRincianBulan; $bulan++) {
@@ -222,16 +262,22 @@ class DetailMobilController extends Controller
                         'merk' => $mobil->merk->nama_merk,
                         'thumbnail_foto' => $mobil->thumbnail_foto ? asset('storage/' . $mobil->thumbnail_foto) : null,
                     ],
+                    'konfigurasi_kredit' => [
+                        'id' => $konfigKredit->id,
+                        'nama_template' => $konfigKredit->nama_template,
+                    ],
                     'harga_otr' => $hargaOtr,
                     'tenor' => $tenorBulan,
                     'bunga_tahunan' => $bungaTahunan,
-                    'dp_percentage' => $dpPercentage,
+                    'bunga_bulanan' => round($bungaBulanan * 100, 4),
+                    'dp_percentage' => round($dpPercentage, 2),
                     'dp_amount' => round($dpAmount),
                     'pokok_kredit' => round($pokokKredit),
                     'angsuran_per_bulan' => round($angsuranBulanan),
                     'biaya_admin' => $biayaAdmin,
                     'biaya_asuransi' => $biayaAsuransi,
                     'total_pembayaran' => round($totalKredit),
+                    'total_bunga' => round($totalKredit - $hargaOtr),
                     'rincian_angsuran' => $rincianAngsuran,
                 ]
             ], 200);
@@ -322,33 +368,12 @@ class DetailMobilController extends Controller
     }
 
     /**
-     * Mendapatkan bunga tahunan berdasarkan tenor
+     * Get tenor options for specific mobil based on konfigurasi kredit
      */
-    private function getBungaTahunan($tenor)
+    public function getTenorOptions(Request $request, $id)
     {
-      
-        if ($tenor <= 12) {
-            return 8.5;
-        } elseif ($tenor <= 24) {
-            return 9.5; 
-        } elseif ($tenor <= 36) {
-            return 10.5;
-        } elseif ($tenor <= 48) {
-            return 11.5;
-        } else {
-            return 12.5;
-        }
-    }
-
-    /**
-     * Mendapatkan opsi-opsi tenor kredit yang tersedia
-     */
-    public function getTenorOptions(Request $request)
-    {
-        // Mendapatkan user yang sedang login
         $user = $request->user();
 
-        // Pastikan user telah login
         if (!$user) {
             return response()->json([
                 'status' => false,
@@ -356,35 +381,89 @@ class DetailMobilController extends Controller
             ], 401);
         }
 
-        $tenorOptions = [
-            ['tenor' => 12, 'label' => '12 Bulan (1 Tahun)'],
-            ['tenor' => 24, 'label' => '24 Bulan (2 Tahun)'],
-            ['tenor' => 36, 'label' => '36 Bulan (3 Tahun)'],
-            ['tenor' => 48, 'label' => '48 Bulan (4 Tahun)'],
-            ['tenor' => 60, 'label' => '60 Bulan (5 Tahun)'],
-        ];
+        try {
+            $mobil = Mobil::with([
+                'opsiPembayaran.konfigurasiKredit:id,nama_template,tenor_bunga_config,is_active'
+            ])->find($id);
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Opsi tenor kredit berhasil diambil',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ],
-            'data' => $tenorOptions
-        ], 200);
+            if (!$mobil) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Mobil tidak ditemukan'
+                ], 404);
+            }
+
+            $opsiPembayaran = $mobil->opsiPembayaran->where('is_active', true)->first();
+            
+            if (!$opsiPembayaran || !$opsiPembayaran->is_kredit || !$opsiPembayaran->konfigurasiKredit) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Opsi kredit tidak tersedia untuk mobil ini'
+                ], 404);
+            }
+
+            $konfigKredit = $opsiPembayaran->konfigurasiKredit;
+            $tenorBungaConfig = $konfigKredit->tenor_bunga_config;
+
+            $tenorOptions = [];
+            foreach ($tenorBungaConfig as $tenor => $bunga) {
+                $tahun = intval($tenor / 12);
+                $sisaBulan = $tenor % 12;
+                
+                $label = $tenor . ' Bulan';
+                if ($tahun > 0) {
+                    $label .= ' (' . $tahun . ' Tahun';
+                    if ($sisaBulan > 0) {
+                        $label .= ' ' . $sisaBulan . ' Bulan';
+                    }
+                    $label .= ')';
+                }
+
+                $tenorOptions[] = [
+                    'tenor' => intval($tenor),
+                    'label' => $label,
+                    'bunga_tahunan' => $bunga
+                ];
+            }
+
+            // Sort by tenor ascending
+            usort($tenorOptions, function($a, $b) {
+                return $a['tenor'] <=> $b['tenor'];
+            });
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Opsi tenor kredit berhasil diambil',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+                'data' => [
+                    'konfigurasi_kredit' => [
+                        'id' => $konfigKredit->id,
+                        'nama_template' => $konfigKredit->nama_template,
+                    ],
+                    'tenor_options' => $tenorOptions
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+                'data' => null
+            ], 500);
+        }
     }
 
     /**
-     * Mendapatkan opsi-opsi DP percentage yang tersedia
+     * Get DP validation info for specific mobil
      */
-    public function getDpOptions(Request $request)
+    public function getDpValidationInfo(Request $request, $id)
     {
-        // Mendapatkan user yang sedang login
         $user = $request->user();
 
-        // Pastikan user telah login
         if (!$user) {
             return response()->json([
                 'status' => false,
@@ -392,26 +471,53 @@ class DetailMobilController extends Controller
             ], 401);
         }
 
-        $dpOptions = [
-            ['percentage' => 10, 'label' => '10%'],
-            ['percentage' => 15, 'label' => '15%'],
-            ['percentage' => 20, 'label' => '20%'],
-            ['percentage' => 25, 'label' => '25%'],
-            ['percentage' => 30, 'label' => '30%'],
-            ['percentage' => 35, 'label' => '35%'],
-            ['percentage' => 40, 'label' => '40%'],
-            ['percentage' => 50, 'label' => '50%'],
-        ];
+        try {
+            $mobil = Mobil::with(['opsiPembayaran'])->find($id);
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Opsi DP kredit berhasil diambil',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ],
-            'data' => $dpOptions
-        ], 200);
+            if (!$mobil) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Mobil tidak ditemukan'
+                ], 404);
+            }
+
+            $opsiPembayaran = $mobil->opsiPembayaran->where('is_active', true)->first();
+            
+            if (!$opsiPembayaran) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Opsi pembayaran tidak tersedia untuk mobil ini'
+                ], 404);
+            }
+
+            $hargaOtr = $opsiPembayaran->harga;
+            $dpMinimal = ($hargaOtr * 10) / 100; // 10%
+            $dpMaksimal = ($hargaOtr * 70) / 100; // 70%
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Informasi DP berhasil diambil',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+                'data' => [
+                    'harga_otr' => $hargaOtr,
+                    'dp_minimal_amount' => $dpMinimal,
+                    'dp_maksimal_amount' => $dpMaksimal,
+                    'dp_minimal_percentage' => 10,
+                    'dp_maksimal_percentage' => 70,
+                    'validation_message' => 'DP minimal 10% (Rp ' . number_format($dpMinimal, 0, ',', '.') . ') dan maksimal 70% (Rp ' . number_format($dpMaksimal, 0, ',', '.') . ') dari harga mobil'
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+                'data' => null
+            ], 500);
+        }
     }
 }

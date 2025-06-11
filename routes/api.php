@@ -34,8 +34,8 @@ Route::middleware('auth:sanctum')->group(function () {
      Route::get('/transmisi', [HomeController::class, 'getAllDataTransmisi']);
 
      Route::get('/mobil-all', [ListMobilController::class, 'getAllDataMobil']);
-     Route::get('/mobil-detail/tenor-options', [DetailMobilController::class, 'getTenorOptions']);
-     Route::get('/mobil-detail/dp-options', [DetailMobilController::class, 'getDpOptions']);
+     Route::get('/mobil-detail/{id}/tenor-options', [DetailMobilController::class, 'getTenorOptions']);
+     Route::get('/mobil-detail/{id}/dp-validation-info', [DetailMobilController::class, 'getDpValidationInfo']);
      Route::get('/favorites/all', [FavoriteController::class, 'getAllDataFavorite']);
      Route::delete('/favorites/clear', [FavoriteController::class, 'clearAllFavorites']);
      Route::get('/profile-detail', [ProfileController::class, 'show']);

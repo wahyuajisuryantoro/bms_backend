@@ -73,53 +73,65 @@ class HomeController extends Controller
         }
     }
 
-    public function getDataMobilDashboard(Request $request)
-    {
-        try {
-            $user = $request->user();
-            $mobil = Mobil::with([
-                'merk',
-                'transmisi',
-                'tipeBodi',
-                'kapasitasMesin',
-                'opsiPembayaran'
-            ])
-                ->where('tersedia', true)
-                ->orderBy('created_at', 'desc')
-                ->get();
+   public function getDataMobilDashboard(Request $request)
+{
+    try {
+        $user = $request->user();
+        $mobil = Mobil::with([
+            'merk:id,nama_merk,foto_merk',
+            'transmisi:id,jenis_transmisi',
+            'tipeBodi:id,nama_tipe',
+            'kapasitasMesin:id,kapasitas',
+            'opsiPembayaran.konfigurasiKredit:id,nama_template,tenor_bunga_config,is_active'
+        ])
+            ->where('tersedia', true)
+            ->orderBy('created_at', 'desc')
+            ->get();
 
-            $mobilData = $mobil->map(function ($item) {
-                $cashOption = $item->opsiPembayaran->where('metode', 'Cash')->first();
-                $harga = $cashOption ? $cashOption->harga : $item->harga;
+        $mobilData = $mobil->map(function ($item) {
+            // Ambil opsi pembayaran yang aktif
+            $opsiPembayaran = $item->opsiPembayaran->where('is_active', true)->first();
+            
+            // Default harga jika tidak ada opsi pembayaran
+            $harga = 0;
+            $hasKredit = false;
 
-                return [
-                    'id' => $item->id,
-                    'nama_mobil' => $item->nama_mobil,
-                    'thumbnail_foto' => $item->thumbnail_foto ? asset('storage/' . $item->thumbnail_foto) : null,
-                    'harga' => $harga, 
-                    'tahun_keluaran' => $item->tahun_keluaran,
-                    'merk_id' => $item->merk_id,
-                    'merk' => $item->merk->nama_merk,
-                    'foto_merk' => $item->merk->foto_merk ? asset('storage/' . $item->merk->foto_merk) : null,
-                    'transmisi_id' => $item->transmisi_id,
-                    'transmisi' => $item->transmisi->jenis_transmisi,
-                    'tipe_bodi' => $item->tipeBodi->nama_tipe,
-                    'kapasitas_mesin' => $item->kapasitasMesin->kapasitas
-                ];
-            });
+            if ($opsiPembayaran) {
+                $harga = $opsiPembayaran->harga;
+                $hasKredit = $opsiPembayaran->is_kredit && $opsiPembayaran->konfigurasiKredit;
+            }
 
-            return response()->json([
-                'status' => true,
-                'message' => 'Data mobil berhasil diambil',
-                'data' => $mobilData
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Error getting car data: ' . $e->getMessage());
-            return response()->json([
-                'status' => false,
-                'message' => 'Terjadi kesalahan',
-                'data' => []
-            ], 500);
-        }
+            return [
+                'id' => $item->id,
+                'nama_mobil' => $item->nama_mobil,
+                'thumbnail_foto' => $item->thumbnail_foto ? asset('storage/' . $item->thumbnail_foto) : null,
+                'harga' => $harga,
+                'harga_cash' => $harga, // Alias untuk kompatibilitas
+                'tahun_keluaran' => $item->tahun_keluaran,
+                'merk_id' => $item->merk_id,
+                'merk' => $item->merk->nama_merk,
+                'foto_merk' => $item->merk->foto_merk ? asset('storage/' . $item->merk->foto_merk) : null,
+                'transmisi_id' => $item->transmisi_id,
+                'transmisi' => $item->transmisi->jenis_transmisi,
+                'tipe_bodi' => $item->tipeBodi->nama_tipe,
+                'kapasitas_mesin' => $item->kapasitasMesin->kapasitas,
+                'has_kredit' => $hasKredit,
+                'metode_pembayaran' => $hasKredit ? ['Cash', 'Kredit'] : ['Cash'],
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Data mobil berhasil diambil',
+            'data' => $mobilData
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Error getting car data: ' . $e->getMessage());
+        return response()->json([
+            'status' => false,
+            'message' => 'Terjadi kesalahan',
+            'data' => []
+        ], 500);
     }
+}
 }
