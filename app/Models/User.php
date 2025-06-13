@@ -14,7 +14,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens,HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -55,5 +55,13 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->role === 'admin';
+    }
+    public function transaksiPenjualan()
+    {
+        return $this->hasMany(TransaksiPenjualan::class);
+    }
+    public function userDetail()
+    {
+        return $this->hasOne(UserDetail::class);
     }
 }

@@ -20,6 +20,12 @@ class TransmisiResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-cog';
     protected static ?string $cluster = MasterDataMobil::class;
     protected static ?string $navigationLabel = 'Transmisi';
+    
+    protected static ?string $modelLabel = 'Transmisi';
+    
+    protected static ?string $pluralModelLabel = 'Transmisi';
+    
+    protected static ?string $slug = 'transmisi-mobil';
     protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form

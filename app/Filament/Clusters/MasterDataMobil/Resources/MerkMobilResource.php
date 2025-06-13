@@ -19,7 +19,10 @@ class MerkMobilResource extends Resource
     protected static ?string $model = MerkMobil::class;
     protected static ?string $navigationIcon = 'heroicon-o-bookmark';
     protected static ?string $cluster = MasterDataMobil::class;
-    protected static ?string $navigationLabel = 'Merk Mobil';
+    protected static ?string $navigationLabel = 'Merk Mobil'; 
+    protected static ?string $modelLabel = 'Merk';
+    protected static ?string $pluralModelLabel = 'Merk Mobil';
+    protected static ?string $slug = 'merk-mobil';
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
@@ -35,10 +38,6 @@ class MerkMobilResource extends Resource
                 Forms\Components\FileUpload::make('foto_merk')
                     ->required()
                     ->image()
-                    ->imageResizeMode('contain')
-                    ->imageCropAspectRatio('1:1')
-                    ->imageResizeTargetWidth('200')
-                    ->imageResizeTargetHeight('200')
                     ->directory('merk-mobil')
                     ->visibility('public')
                     ->label('Logo Merk')

@@ -23,6 +23,13 @@ class ManajemenDataMobilResource extends Resource
     protected static ?string $navigationLabel = 'Mobil';
 
     protected static ?string $navigationGroup = 'Data Mobil';
+    
+    protected static ?string $modelLabel = 'Mobil';
+    
+    protected static ?string $pluralModelLabel = 'Manajemen Mobil';
+    
+    protected static ?string $slug = 'manajemen-mobil';
+    protected static ?int $navigationSort = 2;
     public static function form(Form $form): Form
     {
         return $form
@@ -83,8 +90,8 @@ class ManajemenDataMobilResource extends Resource
                             ->helperText('Foto ini menjadi display utama Mobil. Sebaiknya gunakan gambar dengan background transparan atau putih.')
                             ->required()
                             ->image()
-                            ->imageResizeMode('contain') 
-                            ->imageResizeTargetWidth(800) 
+                            ->imageResizeMode('contain')
+                            ->imageResizeTargetWidth(800)
                             ->imageResizeTargetHeight(700)
                             ->directory('thumbnail-mobil')
                             ->visibility('public'),

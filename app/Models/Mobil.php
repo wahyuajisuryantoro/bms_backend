@@ -107,8 +107,12 @@ class Mobil extends Model
     {
         return $this->hasMany(Favorit::class);
     }
-     public function opsiPembayaran()
+    public function opsiPembayaran()
     {
         return $this->hasMany(OpsiPembayaran::class, 'mobil_id');
+    }
+    public function transaksiPenjualan()
+    {
+        return $this->hasMany(TransaksiPenjualan::class);
     }
 }
