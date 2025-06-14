@@ -10,7 +10,15 @@ use Illuminate\Support\Facades\Mail;
 class LandingController extends Controller
 {
     public function index (){
-        return view('landing.index');
+        return view('landing.content');
+    }
+
+    public function hapusAkun(){
+        return view('landing.hapus_akun');
+    }
+
+     public function privasi(){
+        return view('landing.privasi-kebijakan');
     }
 
     public function storePesan(Request $request)
