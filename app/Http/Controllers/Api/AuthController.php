@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\User;
 use App\Mail\VerifyEmail;
 use App\Models\UserDetail;
+use App\Mail\ResetPassword;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -326,10 +327,165 @@ class AuthController extends Controller
 
     protected function generateVerificationUrl($token)
     {
-        // URL endpoint verifikasi yang mengarah ke halaman web
         $url = url('api/email/verify-token/' . $token);
         return $url;
     }
+
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Email tidak terdaftar.'
+            ], 404);
+        }
+
+        if (is_null($user->email_verified_at)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Email belum diverifikasi. Silakan verifikasi email terlebih dahulu.'
+            ], 403);
+        }
+
+        try {
+            $resetToken = Str::random(64);
+
+            Cache::put('password_reset_' . $resetToken, [
+                'email' => $request->email,
+                'created_at' => now()->toDateTimeString()
+            ], now()->addHour());
+
+            $this->sendResetPasswordEmail($request->email, $resetToken);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Link reset password telah dikirim ke email Anda. Link berlaku selama 1 jam.',
+                'email' => $request->email
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('Error during forgot password: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Terjadi kesalahan saat mengirim email: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function verifyResetToken($token)
+    {
+        try {
+            $resetData = Cache::get('password_reset_' . $token);
+
+            if (!$resetData) {
+                return view('password.failed', [
+                    'message' => 'Token reset password tidak valid atau sudah kadaluarsa. Link hanya berlaku selama 1 jam.'
+                ]);
+            }
+            return view('reset-password.reset-password-form', [
+                'token' => $token,
+                'email' => $resetData['email']
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error verifying reset token: ' . $e->getMessage());
+            return view('password.failed', [
+                'message' => 'Terjadi kesalahan saat memverifikasi token.'
+            ]);
+        }
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'token' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+            'password_confirmation' => 'required|string|min:8',
+        ], [
+            'token.required' => 'Token reset password wajib diisi.',
+            'password.required' => 'Password baru wajib diisi.',
+            'password.min' => 'Password minimal 8 karakter.',
+            'password.confirmed' => 'Konfirmasi password tidak sesuai.',
+            'password_confirmation.required' => 'Konfirmasi password wajib diisi.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $resetData = Cache::get('password_reset_' . $request->token);
+
+            if (!$resetData) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Token reset password tidak valid atau sudah kadaluarsa.'
+                ], 400);
+            }
+
+            $user = User::where('email', $resetData['email'])->first();
+
+            if (!$user) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'User tidak ditemukan.'
+                ], 404);
+            }
+            if (Hash::check($request->password, $user->password)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Password baru tidak boleh sama dengan password lama.'
+                ], 400);
+            }
+            $user->update([
+                'password' => Hash::make($request->password)
+            ]);
+            Cache::forget('password_reset_' . $request->token);
+            $user->tokens()->delete();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Password berhasil direset. Silakan login dengan password baru Anda.'
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('Error during reset password: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Terjadi kesalahan saat reset password: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    protected function sendResetPasswordEmail($email, $token)
+    {
+        $resetUrl = $this->generateResetPasswordUrl($token);
+
+        try {
+            Mail::to($email)->send(new ResetPassword($email, $resetUrl));
+            \Log::info('Reset password email sent successfully to: ' . $email);
+        } catch (\Exception $e) {
+            \Log::error('Failed to send reset password email: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    protected function generateResetPasswordUrl($token)
+    {
+        return url('api/password/reset-token/' . $token);
+    }
+
+
 
     public function logout(Request $request)
     {
@@ -348,7 +504,6 @@ class AuthController extends Controller
         }
     }
 
-    // Endpoint untuk mengecek status pendaftaran dengan email
     public function checkRegistrationStatus(Request $request)
     {
         $request->validate([

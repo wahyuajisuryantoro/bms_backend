@@ -12,19 +12,14 @@ use App\Http\Controllers\Api\DetailMobilController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
-Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verify'])
-     ->name('verification.verify');
-
-Route::get('/email/verify-token/{token}', [AuthController::class, 'verifyToken'])
-     ->name('verification.verify-token');
-
+Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verify'])->name('verification.verify');
+Route::get('/email/verify-token/{token}', [AuthController::class, 'verifyToken'])->name('verification.verify-token');
 Route::post('/email/resend', [AuthController::class, 'resendVerification']);
-
 Route::post('/email/check-status', [AuthController::class, 'checkEmailVerificationStatus']);
-
 Route::post('/email/check-registration', [AuthController::class, 'checkRegistrationStatus']);
-
-
+Route::post('/password/forgot', [AuthController::class, 'forgotPassword']);
+Route::get('/password/reset-token/{token}', [AuthController::class, 'verifyResetToken'])->name('password.reset-token');
+Route::post('/password/reset', [AuthController::class, 'resetPassword']);
 Route::middleware('auth:sanctum')->group(function () {
      Route::post('logout', [AuthController::class, 'logout']);
      Route::put('update-password', [AuthController::class, 'updatePassword']);
