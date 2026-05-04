@@ -57,7 +57,7 @@ class Mobil extends Model
      */
     public function transmisi()
     {
-        return $this->belongsTo(Transmisi::class);
+        return $this->belongsTo(Transmisi::class, 'transmisi_id');
     }
 
     /**

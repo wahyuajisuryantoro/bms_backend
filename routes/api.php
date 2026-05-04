@@ -24,6 +24,7 @@ Route::middleware('auth:sanctum')->group(function () {
      Route::post('logout', [AuthController::class, 'logout']);
      Route::put('update-password', [AuthController::class, 'updatePassword']);
 
+     Route::get('/home-data', [HomeController::class, 'homeData']);
      Route::get('/mobil-dashboard', [HomeController::class, 'getDataMobilDashboard']);
      Route::get('/merk-mobil', [HomeController::class, 'getAllDataMerkMobil']);
      Route::get('/transmisi', [HomeController::class, 'getAllDataTransmisi']);
