@@ -2,21 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\User;
-use App\Mail\VerifyEmail;
-use App\Models\UserDetail;
-use App\Mail\ResetPassword;
-use Illuminate\Support\Str;
-use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\URL;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
+use App\Mail\ResetPassword;
+use App\Mail\VerifyEmail;
+use App\Models\User;
+use App\Models\UserDetail;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Auth\Events\Registered;
-use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -24,58 +21,51 @@ class AuthController extends Controller
     {
         $request->validate([
             'email' => 'required|email',
-            'password' => 'required'
+            'password' => 'required',
         ]);
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'status' => false,
-                'message' => 'Email tidak terdaftar.'
+                'message' => 'Email tidak terdaftar.',
             ], 401);
         }
+
         if (is_null($user->email_verified_at)) {
-            $isPending = false;
             $email = $user->email;
-            foreach (Cache::getPrefix() as $key) {
-                if (strpos($key, 'pending_user_') === 0) {
-                    $data = Cache::get($key);
-                    if ($data && isset($data['email']) && $data['email'] === $email) {
-                        $isPending = true;
-                        break;
-                    }
-                }
-            }
+            $token = Cache::get('pending_email_'.$email);
+            $isPending = $token && Cache::has('pending_user_'.$token);
 
             if ($isPending) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Email belum diverifikasi. Silakan cek email Anda untuk link verifikasi.',
                     'verification_required' => true,
-                    'email' => $email
+                    'email' => $email,
                 ], 403);
             } else {
                 return response()->json([
                     'status' => false,
                     'message' => 'Email belum diverifikasi. Silakan verifikasi email terlebih dahulu.',
                     'verification_required' => true,
-                    'email' => $email
+                    'email' => $email,
                 ], 403);
             }
         }
 
-        if (!\Hash::check($request->password, $user->password)) {
+        if (! Hash::check($request->password, $user->password)) {
             return response()->json([
                 'status' => false,
-                'message' => 'Password salah.'
+                'message' => 'Password salah.',
             ], 401);
         }
 
         if ($user->role !== 'user') {
             return response()->json([
                 'status' => false,
-                'message' => 'Kesalahan Akses Data'
+                'message' => 'Kesalahan Akses Data',
             ], 403);
         }
 
@@ -91,9 +81,9 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'no_wa' => $userDetail ? $userDetail->no_wa : null,
-                'email_verified' => !is_null($user->email_verified_at)
+                'email_verified' => ! is_null($user->email_verified_at),
             ],
-            'token' => $token
+            'token' => $token,
         ]);
     }
 
@@ -110,7 +100,7 @@ class AuthController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Validasi gagal',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -126,20 +116,23 @@ class AuthController extends Controller
                 'role' => 'user',
             ];
 
-            Cache::put('pending_user_' . $verificationToken, $userData, now()->addHours(24));
+            // Simpan data + reverse lookup email -> token
+            Cache::put('pending_user_'.$verificationToken, $userData, now()->addHours(24));
+            Cache::put('pending_email_'.$request->email, $verificationToken, now()->addHours(24));
 
             $this->sendVerificationEmail($request->email, $verificationToken);
 
             return response()->json([
                 'status' => true,
                 'message' => 'Registrasi berhasil. Silakan cek email Anda untuk verifikasi.',
-                'email' => $request->email
+                'email' => $request->email,
             ], 201);
         } catch (\Exception $e) {
-            \Log::error('Error during registration: ' . $e->getMessage());
+            Log::error('Error during registration: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
-                'message' => 'Terjadi kesalahan saat registrasi: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan saat registrasi: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -162,38 +155,38 @@ class AuthController extends Controller
                 return response()->json([
                     'status' => false,
                     'message' => 'Validasi gagal',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             $user = $request->user();
 
-            if (!Hash::check($request->current_password, $user->password)) {
+            if (! Hash::check($request->current_password, $user->password)) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Password lama tidak sesuai.'
+                    'message' => 'Password lama tidak sesuai.',
                 ], 400);
             }
             if (Hash::check($request->new_password, $user->password)) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Password baru tidak boleh sama dengan password lama.'
+                    'message' => 'Password baru tidak boleh sama dengan password lama.',
                 ], 400);
             }
 
             $user->update([
-                'password' => Hash::make($request->new_password)
+                'password' => Hash::make($request->new_password),
             ]);
 
             return response()->json([
                 'status' => true,
-                'message' => 'Password berhasil diperbarui.'
+                'message' => 'Password berhasil diperbarui.',
             ], 200);
 
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Terjadi kesalahan saat memperbarui password: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan saat memperbarui password: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -201,17 +194,17 @@ class AuthController extends Controller
     public function verifyToken($token)
     {
         try {
-            $userData = Cache::get('pending_user_' . $token);
+            $userData = Cache::get('pending_user_'.$token);
 
-            if (!$userData) {
+            if (! $userData) {
                 return view('verification.failed', [
-                    'message' => 'Token verifikasi tidak valid atau sudah kadaluarsa'
+                    'message' => 'Token verifikasi tidak valid atau sudah kadaluarsa',
                 ]);
             }
 
             if (User::where('email', $userData['email'])->exists()) {
                 return view('verification.failed', [
-                    'message' => 'Email sudah terdaftar sebelumnya'
+                    'message' => 'Email sudah terdaftar sebelumnya',
                 ]);
             }
 
@@ -226,14 +219,19 @@ class AuthController extends Controller
                 'user_id' => $user->id,
                 'no_wa' => $userData['no_wa'],
             ]);
-            Cache::forget('pending_user_' . $token);
+
+            // Bersihkan kedua cache
+            Cache::forget('pending_user_'.$token);
+            Cache::forget('pending_email_'.$userData['email']);
+
             return view('verification.success', [
-                'message' => 'Email berhasil diverifikasi. Akun Anda telah dibuat.'
+                'message' => 'Email berhasil diverifikasi. Akun Anda telah dibuat.',
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error during verification: ' . $e->getMessage());
+            Log::error('Error during verification: '.$e->getMessage());
+
             return view('verification.failed', [
-                'message' => 'Terjadi kesalahan saat verifikasi: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan saat verifikasi: '.$e->getMessage(),
             ]);
         }
     }
@@ -242,7 +240,7 @@ class AuthController extends Controller
     {
         return response()->json([
             'status' => false,
-            'message' => 'Metode verifikasi ini sudah tidak digunakan. Silakan gunakan link verifikasi yang dikirim ke email Anda.'
+            'message' => 'Metode verifikasi ini sudah tidak digunakan. Silakan gunakan link verifikasi yang dikirim ke email Anda.',
         ], 410);
     }
 
@@ -257,43 +255,43 @@ class AuthController extends Controller
             if ($user->hasVerifiedEmail()) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Email sudah diverifikasi sebelumnya.'
+                    'message' => 'Email sudah diverifikasi sebelumnya.',
                 ], 400);
             } else {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Email sudah terdaftar tapi belum diverifikasi. Silakan lakukan registrasi ulang.'
+                    'message' => 'Email sudah terdaftar tapi belum diverifikasi. Silakan lakukan registrasi ulang.',
                 ], 400);
             }
         }
-        $foundPendingUser = false;
-        $newToken = Str::random(64);
 
-        foreach (Cache::getPrefix() as $key) {
-            if (strpos($key, 'pending_user_') === 0) {
-                $data = Cache::get($key);
-                if ($data && isset($data['email']) && $data['email'] === $request->email) {
-                    $foundPendingUser = true;
+        // Cek pending via reverse lookup
+        $oldToken = Cache::get('pending_email_'.$request->email);
 
-                    Cache::forget($key);
-
-                    Cache::put('pending_user_' . $newToken, $data, now()->addHours(24));
-
-                    $this->sendVerificationEmail($request->email, $newToken);
-
-                    return response()->json([
-                        'status' => true,
-                        'message' => 'Link verifikasi telah dikirim ulang ke email Anda.'
-                    ]);
-                }
-            }
-        }
-        if (!$foundPendingUser) {
+        if (! $oldToken || ! Cache::has('pending_user_'.$oldToken)) {
             return response()->json([
                 'status' => false,
-                'message' => 'Tidak ditemukan pendaftaran yang belum diverifikasi dengan email ini.'
+                'message' => 'Tidak ditemukan pendaftaran yang belum diverifikasi dengan email ini.',
             ], 404);
         }
+
+        // Ambil data lama, generate token baru
+        $data = Cache::get('pending_user_'.$oldToken);
+        $newToken = Str::random(64);
+
+        // Hapus yang lama
+        Cache::forget('pending_user_'.$oldToken);
+
+        // Simpan dengan token baru
+        Cache::put('pending_user_'.$newToken, $data, now()->addHours(24));
+        Cache::put('pending_email_'.$request->email, $newToken, now()->addHours(24));
+
+        $this->sendVerificationEmail($request->email, $newToken);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Link verifikasi telah dikirim ulang ke email Anda.',
+        ]);
     }
 
     public function resendVerificationSimple(Request $request)
@@ -304,12 +302,13 @@ class AuthController extends Controller
         if (User::where('email', $request->email)->exists()) {
             return response()->json([
                 'status' => false,
-                'message' => 'Email sudah terdaftar. Jika belum terverifikasi, harap daftar dengan email lain.'
+                'message' => 'Email sudah terdaftar. Jika belum terverifikasi, harap daftar dengan email lain.',
             ], 400);
         }
+
         return response()->json([
             'status' => false,
-            'message' => 'Silakan daftar ulang untuk mendapatkan link verifikasi baru.'
+            'message' => 'Silakan daftar ulang untuk mendapatkan link verifikasi baru.',
         ], 404);
     }
 
@@ -318,17 +317,18 @@ class AuthController extends Controller
         $verificationUrl = $this->generateVerificationUrl($token);
         try {
             Mail::to($email)->send(new VerifyEmail(['email' => $email], $verificationUrl));
-            \Log::info('Verification email sent successfully to: ' . $email);
+            Log::info('Verification email sent successfully to: '.$email);
         } catch (\Exception $e) {
-            \Log::error('Failed to send verification email: ' . $e->getMessage());
+            Log::error('Failed to send verification email: '.$e->getMessage());
             throw $e;
         }
     }
 
     protected function generateVerificationUrl($token)
     {
-        $url = url('api/email/verify-token/' . $token);
-        return $url;
+        $baseUrl = config('app.frontend_url', config('app.url'));
+
+        return $baseUrl.'/verify-email/'.$token;
     }
 
     public function forgotPassword(Request $request)
@@ -339,26 +339,26 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'status' => false,
-                'message' => 'Email tidak terdaftar.'
+                'message' => 'Email tidak terdaftar.',
             ], 404);
         }
 
         if (is_null($user->email_verified_at)) {
             return response()->json([
                 'status' => false,
-                'message' => 'Email belum diverifikasi. Silakan verifikasi email terlebih dahulu.'
+                'message' => 'Email belum diverifikasi. Silakan verifikasi email terlebih dahulu.',
             ], 403);
         }
 
         try {
             $resetToken = Str::random(64);
 
-            Cache::put('password_reset_' . $resetToken, [
+            Cache::put('password_reset_'.$resetToken, [
                 'email' => $request->email,
-                'created_at' => now()->toDateTimeString()
+                'created_at' => now()->toDateTimeString(),
             ], now()->addHour());
 
             $this->sendResetPasswordEmail($request->email, $resetToken);
@@ -366,14 +366,15 @@ class AuthController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Link reset password telah dikirim ke email Anda. Link berlaku selama 1 jam.',
-                'email' => $request->email
+                'email' => $request->email,
             ], 200);
 
         } catch (\Exception $e) {
-            \Log::error('Error during forgot password: ' . $e->getMessage());
+            Log::error('Error during forgot password: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
-                'message' => 'Terjadi kesalahan saat mengirim email: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan saat mengirim email: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -381,22 +382,24 @@ class AuthController extends Controller
     public function verifyResetToken($token)
     {
         try {
-            $resetData = Cache::get('password_reset_' . $token);
+            $resetData = Cache::get('password_reset_'.$token);
 
-            if (!$resetData) {
+            if (! $resetData) {
                 return view('password.failed', [
-                    'message' => 'Token reset password tidak valid atau sudah kadaluarsa. Link hanya berlaku selama 1 jam.'
+                    'message' => 'Token reset password tidak valid atau sudah kadaluarsa. Link hanya berlaku selama 1 jam.',
                 ]);
             }
+
             return view('reset-password.reset-password-form', [
                 'token' => $token,
-                'email' => $resetData['email']
+                'email' => $resetData['email'],
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Error verifying reset token: ' . $e->getMessage());
+            Log::error('Error verifying reset token: '.$e->getMessage());
+
             return view('password.failed', [
-                'message' => 'Terjadi kesalahan saat memverifikasi token.'
+                'message' => 'Terjadi kesalahan saat memverifikasi token.',
             ]);
         }
     }
@@ -419,50 +422,51 @@ class AuthController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Validasi gagal',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
-            $resetData = Cache::get('password_reset_' . $request->token);
+            $resetData = Cache::get('password_reset_'.$request->token);
 
-            if (!$resetData) {
+            if (! $resetData) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Token reset password tidak valid atau sudah kadaluarsa.'
+                    'message' => 'Token reset password tidak valid atau sudah kadaluarsa.',
                 ], 400);
             }
 
             $user = User::where('email', $resetData['email'])->first();
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'User tidak ditemukan.'
+                    'message' => 'User tidak ditemukan.',
                 ], 404);
             }
             if (Hash::check($request->password, $user->password)) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Password baru tidak boleh sama dengan password lama.'
+                    'message' => 'Password baru tidak boleh sama dengan password lama.',
                 ], 400);
             }
             $user->update([
-                'password' => Hash::make($request->password)
+                'password' => Hash::make($request->password),
             ]);
-            Cache::forget('password_reset_' . $request->token);
+            Cache::forget('password_reset_'.$request->token);
             $user->tokens()->delete();
 
             return response()->json([
                 'status' => true,
-                'message' => 'Password berhasil direset. Silakan login dengan password baru Anda.'
+                'message' => 'Password berhasil direset. Silakan login dengan password baru Anda.',
             ], 200);
 
         } catch (\Exception $e) {
-            \Log::error('Error during reset password: ' . $e->getMessage());
+            Log::error('Error during reset password: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
-                'message' => 'Terjadi kesalahan saat reset password: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan saat reset password: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -473,19 +477,19 @@ class AuthController extends Controller
 
         try {
             Mail::to($email)->send(new ResetPassword($email, $resetUrl));
-            \Log::info('Reset password email sent successfully to: ' . $email);
+            Log::info('Reset password email sent successfully to: '.$email);
         } catch (\Exception $e) {
-            \Log::error('Failed to send reset password email: ' . $e->getMessage());
+            Log::error('Failed to send reset password email: '.$e->getMessage());
             throw $e;
         }
     }
 
     protected function generateResetPasswordUrl($token)
     {
-        return url('api/password/reset-token/' . $token);
+        $baseUrl = config('app.frontend_url', config('app.url'));
+
+        return $baseUrl.'/reset-password/'.$token;
     }
-
-
 
     public function logout(Request $request)
     {
@@ -494,12 +498,12 @@ class AuthController extends Controller
 
             return response()->json([
                 'status' => true,
-                'message' => 'Logout berhasil'
+                'message' => 'Logout berhasil',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Terjadi kesalahan saat logout: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan saat logout: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -509,33 +513,25 @@ class AuthController extends Controller
         $request->validate([
             'email' => 'required|email',
         ]);
+
         $user = User::where('email', $request->email)->first();
 
         if ($user) {
             return response()->json([
                 'status' => true,
                 'registered' => true,
-                'verified' => !is_null($user->email_verified_at)
+                'verified' => ! is_null($user->email_verified_at),
             ]);
         }
 
-        $isPending = false;
-
-        foreach (Cache::getPrefix() as $key) {
-            if (strpos($key, 'pending_user_') === 0) {
-                $data = Cache::get($key);
-                if ($data && isset($data['email']) && $data['email'] === $request->email) {
-                    $isPending = true;
-                    break;
-                }
-            }
-        }
+        // Cek pending via reverse lookup
+        $token = Cache::get('pending_email_'.$request->email);
+        $isPending = $token && Cache::has('pending_user_'.$token);
 
         return response()->json([
             'status' => true,
             'registered' => false,
-            'pending' => $isPending
+            'pending' => $isPending,
         ]);
     }
-
 }
