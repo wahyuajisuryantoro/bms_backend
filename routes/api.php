@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\RegionController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HomeController;
