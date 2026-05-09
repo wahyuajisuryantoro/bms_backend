@@ -13,7 +13,7 @@ use App\Http\Controllers\Api\DetailMobilController;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verify'])->name('verification.verify');
-Route::get('/email/verify-token/{token}', [AuthController::class, 'verifyToken'])->name('verification.verify-token');
+Route::get('/verify-email/{token}', [AuthController::class, 'verifyToken'])->name('verification.verify-token');
 Route::post('/email/resend', [AuthController::class, 'resendVerification']);
 Route::post('/email/check-status', [AuthController::class, 'checkEmailVerificationStatus']);
 Route::post('/email/check-registration', [AuthController::class, 'checkRegistrationStatus']);
